@@ -190,6 +190,13 @@ class UserWSClient:
             raise RuntimeError(f"User stream auth failed: {data}")
         
         logger.info("User stream authenticated")
+        
+        # Subscribe to order and position channels
+        await self._ws.send(json.dumps({"subscribe": {"channel": "order"}}))
+        logger.info("Subscribed to order channel")
+        
+        await self._ws.send(json.dumps({"subscribe": {"channel": "position"}}))
+        logger.info("Subscribed to position channel")
     
     async def _reconnect(self):
         """Reconnect and re-authenticate."""

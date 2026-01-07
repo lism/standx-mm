@@ -79,12 +79,39 @@ async def main(config_path: str):
         
         market_ws.on_price(on_price)
         
-        # Register order callback
+        # Register order callback to detect fills
         def on_order(data):
-            logger.info(f"Order update: {data}")
-            # TODO: Handle order status changes
+            order_data = data.get("data", {})
+            status = order_data.get("status")
+            cl_ord_id = order_data.get("cl_ord_id", "")
+            side = order_data.get("side")
+            
+            logger.info(f"Order update: cl_ord_id={cl_ord_id}, status={status}, side={side}")
+            
+            # Clear order from local state if filled or cancelled
+            if status in ("filled", "cancelled", "rejected"):
+                if side in ("buy", "sell"):
+                    current_order = state.get_order(side)
+                    if current_order and current_order.cl_ord_id == cl_ord_id:
+                        logger.info(f"Order {status}: clearing {side} from state")
+                        state.set_order(side, None)
+                        
+                        # Trigger a check to potentially place new order
+                        maker._pending_check.set()
         
         user_ws.on_order(on_order)
+        
+        # Register position callback to track fills
+        def on_position(data):
+            pos_data = data.get("data", {})
+            qty = float(pos_data.get("qty", 0))
+            symbol = pos_data.get("symbol", "")
+            
+            if symbol == config.symbol:
+                logger.info(f"Position update: {symbol} qty={qty}")
+                state.update_position(qty)
+        
+        user_ws.on_position(on_position)
         
         # Initialize state from exchange
         await maker.initialize()
