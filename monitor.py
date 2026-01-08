@@ -66,8 +66,49 @@ class AccountState:
     maker_pts: float = 0.0
     holder_pts: float = 0.0
     uptime_12h: str = ""  # 12-hour uptime visualization ████░░░░
+    latency_avg: float = 0.0  # Average latency in ms
+    latency_max: float = 0.0  # Max latency in ms
     low_equity_alerted: bool = False
     high_position_alerted: bool = False
+
+
+def read_latency_stats(config_path: str, window_hours: float = 2.0) -> tuple:
+    """
+    Read latency log file and compute stats for recent window.
+    
+    Returns:
+        (avg_ms, max_ms) or (0, 0) if no data
+    """
+    import os
+    from datetime import datetime, timedelta
+    
+    config_name = config_path.replace(".yaml", "").replace(".yml", "")
+    log_file = f"latency_{config_name}.log"
+    
+    if not os.path.exists(log_file):
+        return (0.0, 0.0)
+    
+    try:
+        cutoff_time = datetime.now() - timedelta(hours=window_hours)
+        latencies = []
+        
+        with open(log_file, "r") as f:
+            for line in f:
+                parts = line.strip().split(",")
+                if len(parts) >= 3:
+                    timestamp_str, endpoint, latency_ms = parts[0], parts[1], parts[2]
+                    try:
+                        ts = datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S")
+                        if ts >= cutoff_time:
+                            latencies.append(float(latency_ms))
+                    except:
+                        pass
+        
+        if latencies:
+            return (sum(latencies) / len(latencies), max(latencies))
+        return (0.0, 0.0)
+    except:
+        return (0.0, 0.0)
 
 
 async def query_balance(auth: StandXAuth) -> Dict:
@@ -230,6 +271,9 @@ async def poll_account(account: AccountState) -> bool:
         account.holder_pts = stats["holder_pts"]
         account.uptime_12h = stats["uptime_12h"]
         
+        # Read latency stats from log file
+        account.latency_avg, account.latency_max = read_latency_stats(account.config_path)
+        
         return True
     except Exception as e:
         logger.error(f"Failed to poll {account.config_path}: {e}")
@@ -278,12 +322,20 @@ def send_status_report(accounts: List[AccountState]):
     lines = []
     for acc in accounts:
         name = acc.config_path.replace(".yaml", "").replace("config-", "").replace("config", "main")
-        # Format: name: $equity pos uPNL pts uptime
+        # Format: name: $equity pos uPNL pts uptime latency
         pos_str = f"pos:{acc.position:+.4f}"
         upnl_str = f"uPNL:{acc.upnl:+.2f}"
         pts_str = f"T{acc.trader_pts:.0f}/M{acc.maker_pts:.0f}/H{acc.holder_pts:.0f}"
         uptime_str = f"[{acc.uptime_12h}]"
-        lines.append(f"{name}: ${acc.current_equity:,.0f} {pos_str} {upnl_str} {pts_str} {uptime_str}")
+        
+        # Latency with warning indicator
+        if acc.latency_avg > 0:
+            latency_warning = "⚠️" if acc.latency_avg > 200 or acc.latency_max > 1000 else ""
+            latency_str = f"延迟:{acc.latency_avg:.0f}/{acc.latency_max:.0f}ms{latency_warning}"
+        else:
+            latency_str = "延迟:-"
+        
+        lines.append(f"{name}: ${acc.current_equity:,.0f} {pos_str} {upnl_str} {pts_str} {uptime_str} {latency_str}")
     
     msg = "\n".join(lines)
     send_notify("StandX 状态", msg, channel="info", priority="normal")
@@ -303,6 +355,7 @@ def write_status_log(accounts: List[AccountState]):
         lines.append(f"  uPNL:       ${acc.upnl:+.2f}")
         lines.append(f"  Points:     T{acc.trader_pts:.0f} / M{acc.maker_pts:.0f} / H{acc.holder_pts:.0f}")
         lines.append(f"  Uptime 12h: [{acc.uptime_12h}]")
+        lines.append(f"  Latency:    avg {acc.latency_avg:.0f}ms / max {acc.latency_max:.0f}ms")
         lines.append("")
     
     # Overwrite the file with current status

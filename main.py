@@ -59,6 +59,13 @@ async def main(config_path: str):
     
     # Initialize clients
     http_client = StandXHTTPClient(auth)
+    
+    # Set latency log file based on config name
+    config_name = config_path.replace(".yaml", "").replace(".yml", "")
+    latency_log_file = f"latency_{config_name}.log"
+    http_client.set_latency_log_file(latency_log_file)
+    logger.info(f"Latency logging to: {latency_log_file}")
+    
     market_ws = MarketWSClient()
     user_ws = UserWSClient(auth)
     

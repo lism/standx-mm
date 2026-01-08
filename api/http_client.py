@@ -1,8 +1,10 @@
 """HTTP client for StandX Perps API."""
 import json
+import time
 import logging
 from typing import Optional, List
 from dataclasses import dataclass
+from datetime import datetime
 
 import httpx
 
@@ -37,9 +39,25 @@ class StandXHTTPClient:
     
     BASE_URL = "https://perps.standx.com"
     
-    def __init__(self, auth: StandXAuth):
+    def __init__(self, auth: StandXAuth, latency_log_file: str = None):
         self._auth = auth
         self._client = httpx.AsyncClient(timeout=30.0)
+        self._latency_log_file = latency_log_file
+    
+    def set_latency_log_file(self, filepath: str):
+        """Set the file path for latency logging."""
+        self._latency_log_file = filepath
+    
+    def _write_latency(self, endpoint: str, latency_ms: float):
+        """Write latency record to log file."""
+        if not self._latency_log_file:
+            return
+        try:
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            with open(self._latency_log_file, "a") as f:
+                f.write(f"{timestamp},{endpoint},{latency_ms:.0f}\n")
+        except:
+            pass  # Don't let logging failure affect trading
     
     async def close(self):
         """Close the HTTP client."""
@@ -197,8 +215,6 @@ class StandXHTTPClient:
     
     async def _post(self, path: str, payload: dict, sign: bool = False) -> dict:
         """Make a POST request with latency tracking."""
-        import time
-        
         url = f"{self.BASE_URL}{path}"
         payload_str = json.dumps(payload)
         
@@ -217,5 +233,8 @@ class StandXHTTPClient:
         
         result = response.json()
         logger.info(f"[Latency] {path} responded in {latency_ms:.0f}ms")
+        
+        # Write latency to log file
+        self._write_latency(path, latency_ms)
         
         return result
