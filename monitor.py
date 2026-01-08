@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 
 # Constants
-POLL_INTERVAL_SEC = 60  # 1 minute
+POLL_INTERVAL_SEC = 300  # 5 minutes
 STATUS_REPORT_INTERVAL_SEC = 2 * 60 * 60  # 2 hours
 EQUITY_DROP_THRESHOLD = 0.10  # 10% drop triggers alert
 POSITION_ALERT_MULTIPLIER = 5  # Alert if position > order_size * 5
