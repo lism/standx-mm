@@ -87,31 +87,31 @@ class AccountState:
     maker_pts: float = 0.0
     holder_pts: float = 0.0
     uptime_12h: str = ""  # 12-hour uptime visualization ████░░░░
-    latency_avg: float = 0.0  # Average latency in ms
-    latency_max: float = 0.0  # Max latency in ms
+    latency_stats: dict = field(default_factory=dict)  # {endpoint: (avg_ms, max_ms)}
     low_equity_alerted: bool = False
     high_position_alerted: bool = False
 
 
-def read_latency_stats(config_path: str, window_hours: float = 2.0) -> tuple:
+def read_latency_stats(config_path: str, window_hours: float = 2.0) -> dict:
     """
-    Read latency log file and compute stats for recent window.
+    Read latency log file and compute stats for recent window, by endpoint.
     
     Returns:
-        (avg_ms, max_ms) or (0, 0) if no data
+        Dict of {endpoint: (avg_ms, max_ms)} or empty dict if no data
     """
     import os
     from datetime import datetime, timedelta
+    from collections import defaultdict
     
     config_name = config_path.replace(".yaml", "").replace(".yml", "")
     log_file = f"latency_{config_name}.log"
     
     if not os.path.exists(log_file):
-        return (0.0, 0.0)
+        return {}
     
     try:
         cutoff_time = datetime.now() - timedelta(hours=window_hours)
-        latencies = []
+        latencies_by_endpoint = defaultdict(list)
         
         with open(log_file, "r") as f:
             for line in f:
@@ -121,15 +121,19 @@ def read_latency_stats(config_path: str, window_hours: float = 2.0) -> tuple:
                     try:
                         ts = datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S")
                         if ts >= cutoff_time:
-                            latencies.append(float(latency_ms))
+                            # Simplify endpoint name for display
+                            short_name = endpoint.replace("/api/", "").replace("_", " ")
+                            latencies_by_endpoint[short_name].append(float(latency_ms))
                     except:
                         pass
         
-        if latencies:
-            return (sum(latencies) / len(latencies), max(latencies))
-        return (0.0, 0.0)
+        result = {}
+        for endpoint, latencies in latencies_by_endpoint.items():
+            if latencies:
+                result[endpoint] = (sum(latencies) / len(latencies), max(latencies))
+        return result
     except:
-        return (0.0, 0.0)
+        return {}
 
 
 async def query_balance(auth: StandXAuth) -> Dict:
@@ -292,8 +296,8 @@ async def poll_account(account: AccountState) -> bool:
         account.holder_pts = stats["holder_pts"]
         account.uptime_12h = stats["uptime_12h"]
         
-        # Read latency stats from log file
-        account.latency_avg, account.latency_max = read_latency_stats(account.config_path)
+        # Read latency stats from log file (by endpoint)
+        account.latency_stats = read_latency_stats(account.config_path)
         
         return True
     except Exception as e:
@@ -333,7 +337,9 @@ def check_position_alert(account: AccountState):
     if abs(account.position) > threshold and not account.high_position_alerted:
         account.high_position_alerted = True
         name = account.config_path.replace(".yaml", "").replace("config-", "").replace("config", "main")
-        msg = f"{name} 仓位告警: {account.position:.4f} BTC (阈值: ±{threshold:.4f})"
+        # Extract asset from symbol (e.g., BTC-USD -> BTC, ETH-USD -> ETH)
+        asset = account.config.symbol.split("-")[0] if account.config.symbol else "BTC"
+        msg = f"{name} 仓位告警: {account.position:.4f} {asset} (阈值: ±{threshold:.4f})"
         send_notify("仓位告警", msg, channel="info", priority="normal")
     
     # Reset alert if position reduced
@@ -352,10 +358,14 @@ def send_status_report(accounts: List[AccountState]):
         pts_str = f"T{acc.trader_pts:.0f}/M{acc.maker_pts:.0f}/H{acc.holder_pts:.0f}"
         uptime_str = f"[{acc.uptime_12h}]"
         
-        # Latency with warning indicator
-        if acc.latency_avg > 0:
-            latency_warning = "⚠️" if acc.latency_avg > 200 or acc.latency_max > 1000 else ""
-            latency_str = f"延迟:{acc.latency_avg:.0f}/{acc.latency_max:.0f}ms{latency_warning}"
+        # Latency summary (average across all endpoints)
+        if acc.latency_stats:
+            all_avgs = [avg for avg, _ in acc.latency_stats.values()]
+            all_maxs = [max_val for _, max_val in acc.latency_stats.values()]
+            avg_overall = sum(all_avgs) / len(all_avgs) if all_avgs else 0
+            max_overall = max(all_maxs) if all_maxs else 0
+            latency_warning = "⚠️" if avg_overall > 200 or max_overall > 1000 else ""
+            latency_str = f"延迟:{avg_overall:.0f}/{max_overall:.0f}ms{latency_warning}"
         else:
             latency_str = "延迟:-"
         
@@ -381,7 +391,13 @@ def write_status_log(accounts: List[AccountState]):
         lines.append(f"  uPNL:       ${acc.upnl:+.2f}")
         lines.append(f"  Points:     T{acc.trader_pts:.0f} / M{acc.maker_pts:.0f} / H{acc.holder_pts:.0f}")
         lines.append(f"  Uptime 12h: [{acc.uptime_12h}]")
-        lines.append(f"  Latency:    avg {acc.latency_avg:.0f}ms / max {acc.latency_max:.0f}ms")
+        # Display latency by endpoint
+        if acc.latency_stats:
+            lines.append("  Latency:")
+            for endpoint, (avg, max_val) in acc.latency_stats.items():
+                lines.append(f"    {endpoint}: avg {avg:.0f}ms / max {max_val:.0f}ms")
+        else:
+            lines.append("  Latency:    (no data)")
         lines.append("")
     
     # Overwrite the file with current status
