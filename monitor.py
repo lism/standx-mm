@@ -375,7 +375,9 @@ def write_status_log(accounts: List[AccountState]):
         name = acc.config_path.replace(".yaml", "").replace("config-", "").replace("config", "main")
         lines.append(f"Account: {name}")
         lines.append(f"  Equity:     ${acc.current_equity:,.2f}")
-        lines.append(f"  Position:   {acc.position:+.4f} BTC")
+        # Extract asset from symbol (e.g., BTC-USD -> BTC, ETH-USD -> ETH)
+        asset = acc.config.symbol.split("-")[0] if acc.config.symbol else "BTC"
+        lines.append(f"  Position:   {acc.position:+.4f} {asset}")
         lines.append(f"  uPNL:       ${acc.upnl:+.2f}")
         lines.append(f"  Points:     T{acc.trader_pts:.0f} / M{acc.maker_pts:.0f} / H{acc.holder_pts:.0f}")
         lines.append(f"  Uptime 12h: [{acc.uptime_12h}]")
