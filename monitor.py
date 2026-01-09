@@ -39,12 +39,29 @@ STATUS_LOG_FILE = "status.log"
 
 
 def send_notify(title: str, message: str, channel: str = "info", priority: str = "normal"):
-    """Send notification via Telegram."""
+    """Send notification via Telegram.
+    
+    Requires environment variables:
+        NOTIFY_URL: Notification service URL (e.g., http://localhost:8000/notify)
+        NOTIFY_API_KEY: API key for the notification service
+    
+    See: https://github.com/frozen-cherry/tg-notify
+    """
+    notify_url = os.environ.get("NOTIFY_URL", "")
+    notify_api_key = os.environ.get("NOTIFY_API_KEY", "")
+    
+    if not notify_url:
+        return  # Notification not configured
+    
     try:
+        headers = {}
+        if notify_api_key:
+            headers["X-API-Key"] = notify_api_key
+        
         requests.post(
-            "http://81.92.219.140:8000/notify",
+            notify_url,
             json={"title": title, "message": message, "channel": channel, "priority": priority},
-            headers={"X-API-Key": "bananaisgreat"},
+            headers=headers,
             timeout=10,
         )
         logger.info(f"Notification sent: [{priority}] {title}")

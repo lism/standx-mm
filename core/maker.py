@@ -20,12 +20,28 @@ logger = logging.getLogger(__name__)
 
 
 def send_notify(title: str, message: str, priority: str = "normal"):
-    """Send notification via Telegram."""
+    """Send notification via Telegram.
+    
+    Requires environment variables:
+        NOTIFY_URL: Notification service URL
+        NOTIFY_API_KEY: API key for the notification service
+    """
+    import os
+    notify_url = os.environ.get("NOTIFY_URL", "")
+    notify_api_key = os.environ.get("NOTIFY_API_KEY", "")
+    
+    if not notify_url:
+        return  # Notification not configured
+    
     try:
+        headers = {}
+        if notify_api_key:
+            headers["X-API-Key"] = notify_api_key
+        
         requests.post(
-            "http://81.92.219.140:8000/notify",
+            notify_url,
             json={"title": title, "message": message, "channel": "alert", "priority": priority},
-            headers={"X-API-Key": "bananaisgreat"},
+            headers=headers,
             timeout=5,
         )
     except:

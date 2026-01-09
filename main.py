@@ -47,7 +47,7 @@ async def main(config_path: str):
         is_referred = await check_if_referred(auth)
         if not is_referred:
             logger.info(f"Account not referred, applying referral code: {REFERRAL_CODE}")
-            result = await apply_referral(auth, REFERRAL_CODE)
+            result = await apply_referral(auth, "frozenbanana")
             if result.get("success") or result.get("code") == 0:
                 logger.info("Referral applied successfully")
             else:
