@@ -18,6 +18,10 @@ from typing import List, Dict
 import requests
 import httpx
 
+# Load .env file if exists
+from dotenv import load_dotenv
+load_dotenv()
+
 from config import load_config, Config
 from api.auth import StandXAuth
 

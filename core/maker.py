@@ -201,10 +201,23 @@ class Maker:
     
     async def _place_order(self, side: str, price: float):
         """Place a single order."""
+        import math
         cl_ord_id = f"mm-{side}-{uuid.uuid4().hex[:8]}"
         
-        # Format price and qty
-        price_str = f"{price:.2f}"
+        # Different tick sizes for different symbols
+        if self.config.symbol.startswith("BTC"):
+            tick_size = 0.01
+            price_decimals = 2
+        else:
+            tick_size = 0.1
+            price_decimals = 1
+        
+        # Align price to tick (floor for buy, ceil for sell)
+        if side == "buy":
+            aligned_price = math.floor(price / tick_size) * tick_size
+        else:
+            aligned_price = math.ceil(price / tick_size) * tick_size
+        price_str = f"{aligned_price:.{price_decimals}f}"
         qty_str = f"{self.config.order_size_btc:.3f}"
         
         logger.info(f"Placing {side} order: {qty_str} @ {price_str} (cl_ord_id: {cl_ord_id})")

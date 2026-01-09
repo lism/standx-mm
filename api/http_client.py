@@ -229,6 +229,10 @@ class StandXHTTPClient:
         response = await self._client.post(url, content=payload_str, headers=headers)
         latency_ms = (time.time() - start_time) * 1000
         
+        # Log response for debugging
+        if response.status_code >= 400:
+            logger.error(f"API error {response.status_code}: {response.text}")
+        
         response.raise_for_status()
         
         result = response.json()

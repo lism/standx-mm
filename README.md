@@ -95,12 +95,13 @@ python monitor.py config.yaml config-bot2.yaml config-bot3.yaml
 通知服务配置：
 
 1. 部署通知服务：https://github.com/frozen-cherry/tg-notify
-2. 设置环境变量：
+2. 复制并编辑配置文件：
 
 ```bash
-export NOTIFY_URL="http://your-server:8000/notify"
-export NOTIFY_API_KEY="your-api-key"
+cp .env.example .env
 ```
+
+编辑 `.env` 文件填入你的通知服务地址和 API Key。
 
 ### 延迟测试
 
