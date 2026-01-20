@@ -46,17 +46,43 @@ class StandXAuth:
         """Check if we have a valid token."""
         return self._token is not None and time.time() < self._token_expires_at
     
-    async def authenticate(self, chain: str, private_key: str) -> str:
+    async def authenticate(self, chain: str, private_key: Optional[str] = None, api_token: Optional[str] = None, api_secret: Optional[str] = None) -> str:
         """
-        Authenticate with StandX using wallet signature.
+        Authenticate with StandX.
         
         Args:
             chain: Blockchain chain (bsc or solana)
-            private_key: Wallet private key
+            private_key: Wallet private key (for wallet auth)
+            api_token: Pre-generated API token (skips wallet auth)
+            api_secret: Ed25519 private key seed (base58 or hex) for signing requests (required if using api_token with signed endpoints)
             
         Returns:
             JWT access token
         """
+        if api_secret:
+            try:
+                # Try base58 decoding first, then hex
+                try:
+                    seed = self._base58_decode(api_secret)
+                except Exception:
+                    # Fallback to hex decoding
+                    seed = bytes.fromhex(api_secret.replace("0x", ""))
+                
+                self._signing_key = SigningKey(seed)
+                self._verify_key = self._signing_key.verify_key
+                self._request_id = self._base58_encode(bytes(self._verify_key))
+            except Exception as e:
+                # Fallback or logging could be added here
+                print(f"Warning: Failed to load api_secret: {e}")
+
+        if api_token:
+            self._token = api_token
+            self._token_expires_at = float('inf')
+            return self._token
+
+        if not private_key:
+            raise ValueError("private_key is required if api_token is not provided")
+
         async with httpx.AsyncClient() as client:
             # Step 1: Get signature data
             wallet_address = self._get_wallet_address(chain, private_key)
@@ -203,3 +229,29 @@ class StandXAuth:
             result = alphabet[r] + result
         
         return "1" * n_pad + result
+    
+    @staticmethod
+    def _base58_decode(encoded: str) -> bytes:
+        """Base58 decode string to bytes."""
+        alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
+        
+        # Count leading '1's
+        n_pad = 0
+        for c in encoded:
+            if c == "1":
+                n_pad += 1
+            else:
+                break
+        
+        # Convert from base58 to integer
+        n = 0
+        for c in encoded:
+            n = n * 58 + alphabet.index(c)
+        
+        # Convert to bytes
+        if n == 0:
+            result = b"\x00"
+        else:
+            result = n.to_bytes((n.bit_length() + 7) // 8, "big")
+        
+        return b"\x00" * n_pad + result

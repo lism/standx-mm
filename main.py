@@ -39,7 +39,12 @@ async def main(config_path: str):
     # Initialize authentication
     logger.info("Initializing authentication...")
     auth = StandXAuth()
-    await auth.authenticate(config.wallet.chain, config.wallet.private_key)
+    await auth.authenticate(
+        chain=config.wallet.chain,
+        private_key=config.wallet.private_key,
+        api_token=config.wallet.api_token,
+        api_secret=config.wallet.api_secret
+    )
     logger.info("Authentication successful")
     
     # Check and apply referral if needed

@@ -7,7 +7,9 @@ from dataclasses import dataclass
 @dataclass
 class WalletConfig:
     chain: str
-    private_key: str
+    private_key: str = None
+    api_token: str = None
+    api_secret: str = None
 
 
 @dataclass
@@ -24,8 +26,18 @@ class Config:
     
     @classmethod
     def from_dict(cls, data: dict) -> "Config":
+        wallet_data = data["wallet"]
+        # Allow api_token to be set if private_key is missing
+        if "api_token" not in wallet_data and "private_key" not in wallet_data:
+             raise ValueError("Either private_key or api_token must be provided in wallet config")
+             
         return cls(
-            wallet=WalletConfig(**data["wallet"]),
+            wallet=WalletConfig(
+                chain=wallet_data.get("chain", "bsc"),
+                private_key=wallet_data.get("private_key"),
+                api_token=wallet_data.get("api_token"),
+                api_secret=wallet_data.get("api_secret")
+            ),
             symbol=data["symbol"],
             order_distance_bps=data["order_distance_bps"],
             cancel_distance_bps=data["cancel_distance_bps"],

@@ -224,7 +224,7 @@ class Maker:
         else:
             aligned_price = math.ceil(price / tick_size) * tick_size
         price_str = f"{aligned_price:.{price_decimals}f}"
-        qty_str = f"{self.config.order_size_btc:.3f}"
+        qty_str = f"{self.config.order_size_btc:.4f}"
         
         logger.info(f"Placing {side} order: {qty_str} @ {price_str} (cl_ord_id: {cl_ord_id})")
         
@@ -330,7 +330,7 @@ class Maker:
             cl_ord_id = f"reduce-{uuid.uuid4().hex[:8]}"
             
             # Format quantity
-            qty_str = f"{reduce_qty:.3f}"
+            qty_str = f"{reduce_qty:.4f}"
             
             response = await self.client.new_order(
                 symbol=self.config.symbol,

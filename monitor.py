@@ -260,7 +260,12 @@ async def init_account(config_path: str) -> AccountState:
     auth = StandXAuth()
     
     logger.info(f"Authenticating: {config_path}")
-    await auth.authenticate(config.wallet.chain, config.wallet.private_key)
+    await auth.authenticate(
+        chain=config.wallet.chain,
+        private_key=config.wallet.private_key,
+        api_token=config.wallet.api_token,
+        api_secret=config.wallet.api_secret
+    )
     
     # Get initial balance
     balance_data = await query_balance(auth)

@@ -1,6 +1,11 @@
 wallet:
   chain: bsc # bsc | solana
-  private_key: "YOUR_PRIVATE_KEY_HERE"
+  # Option 1: Use private key (legacy)
+  # private_key: "YOUR_PRIVATE_KEY_HERE"
+  
+  # Option 2: Use API Token (recommended)
+  api_token: "YOUR_API_TOKEN_HERE"
+  api_secret: "YOUR_API_SECRET_HERE" # Ed25519 seed (base58 or hex format)
 
 symbol: BTC-USD
 

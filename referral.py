@@ -64,7 +64,12 @@ async def main(config_path: str):
     
     print(f"Authenticating wallet on chain: {config.wallet.chain}")
     auth = StandXAuth()
-    await auth.authenticate(config.wallet.chain, config.wallet.private_key)
+    await auth.authenticate(
+        chain=config.wallet.chain,
+        private_key=config.wallet.private_key,
+        api_token=config.wallet.api_token,
+        api_secret=config.wallet.api_secret
+    )
     print("Authentication successful")
     
     # Check if already referred

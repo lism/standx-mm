@@ -45,7 +45,13 @@ async def main():
     
     # Create auth
     auth = StandXAuth()
-    await auth.authenticate(config["wallet"]["chain"], config["wallet"]["private_key"])
+    wallet = config["wallet"]
+    await auth.authenticate(
+        chain=wallet["chain"],
+        private_key=wallet.get("private_key"),
+        api_token=wallet.get("api_token"),
+        api_secret=wallet.get("api_secret")
+    )
     
     # Calculate time range
     end_time = datetime.utcnow()
